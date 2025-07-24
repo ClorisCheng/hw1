@@ -255,9 +255,49 @@ class MatMul(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
+        '''
+        - If a.shape is (m, n) and b.shape is (n, p), then out_grad should be (m, p).
+        
+        Subtlties when broadcasting happens:
+        - Leading dimensions
+            - Example: a.shape is (6, 6, 5, 4) and b.shape is (4, 3), then out_grad should be (6, 6, 5, 3).
+            - Let c = a @ b, then c.shape is (6, 6, 5, 3). dc/d(b) should be a.T @ (6, 6, 5, 3).
+            - dc/d(b) = (6, 6, 4, 3), but it should have shape (4, 3).
+            - Need to sum over the dimensions that were broadcasted, i.e. 6, 6.
+        - If there are dimensions of size 1
+            - Example: a.shape = (3, 1, 5), b.shape = (1, 5, 5)
+            - out_grad.shape = (3, 5, 5)
+            - grad_a.shape = (3, 5, 5)
+            - Need to sum over axis where a.shape is 1 but grad_a.shape > 1.
+        
+        '''
+
         a, b = node.inputs
-        # check out_grad and a, b shape. and how matmul works
-        return matmul(out_grad, transpose(b)), matmul(transpose(a), out_grad)
+        # print(f"a shape: {a.shape} \n b shape: {b.shape} \n out_grad shape: {out_grad.shape}")
+        grad_a = matmul(out_grad, transpose(b, axes=(-1, -2)))
+        grad_b = matmul(transpose(a, axes=(-1, -2)), out_grad)
+
+        if grad_a.shape != a.shape:
+            # Sum over leading dimensions that were broadcasted
+            axes = tuple(i for i in range(len(grad_a.shape) - len(a.shape)))
+            if axes:
+                grad_a = summation(grad_a, axes=axes)
+            # Sum over dimensions where a.shape is 1 but grad_a.shape > 1
+            axes = tuple(i for i, (ga, aa) in enumerate(zip(grad_a.shape, a.shape)) if aa == 1 and ga != 1)
+            if axes:
+                grad_a = summation(grad_a, axes=axes)
+            grad_a = reshape(grad_a, a.shape)
+
+        if grad_b.shape != b.shape:
+            axes = tuple(i for i in range(len(grad_b.shape) - len(b.shape)))
+            if axes:
+                grad_b = summation(grad_b, axes=axes)
+            axes = tuple(i for i, (gb, bb) in enumerate(zip(grad_b.shape, b.shape)) if bb == 1 and gb != 1)
+            if axes:
+                grad_b = summation(grad_b, axes=axes)
+            grad_b = reshape(grad_b, b.shape)
+
+        return grad_a, grad_b
         ### END YOUR SOLUTION
 
 
