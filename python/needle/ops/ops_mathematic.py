@@ -209,7 +209,20 @@ class BroadcastTo(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        a = node.inputs[0]
+
+        # cases when len(a.shape) < len(out_grad.shape)
+        axes = tuple(i for i in range(len(out_grad.shape) - len(a.shape)))
+        if axes:
+            # We need to sum over the leading dimensions that were broadcasted
+            out_grad = summation(out_grad, axes=axes)
+        # cases when a.shape has dimensions of size 1 but out_grad.shape does not
+        axes = [i for i in range(len(a.shape)) if a.shape[i] == 1 and self.shape[i] != 1]
+        if axes:
+            # We need to sum over the axes where a.shape is 1 but self.shape is not 1
+            out_grad = summation(out_grad, axes=tuple(axes))
+
+        return reshape(out_grad, a.shape)
         ### END YOUR SOLUTION
 
 
@@ -313,7 +326,7 @@ class Negate(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return -out_grad
         ### END YOUR SOLUTION
 
 
@@ -329,7 +342,7 @@ class Log(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return divide(out_grad, node.inputs[0])
         ### END YOUR SOLUTION
 
 
@@ -345,7 +358,7 @@ class Exp(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return out_grad * exp(node.inputs[0])
         ### END YOUR SOLUTION
 
 
